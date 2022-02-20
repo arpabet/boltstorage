@@ -32,10 +32,10 @@ type boltStorage struct {
 	db     *bolt.DB
 }
 
-func New(conf *BoltConfig) (storage.ManagedStorage, error) {
+func New(name string, conf *BoltConfig) (storage.ManagedStorage, error) {
 
-	if conf.Name == "" {
-		return nil, errors.New("empty storage name")
+	if name == "" {
+		return nil, errors.New("empty bean name")
 	}
 
 	db, err := OpenDatabase(conf)
@@ -43,7 +43,7 @@ func New(conf *BoltConfig) (storage.ManagedStorage, error) {
 		return nil, err
 	}
 
-	return &boltStorage {name: conf.Name, db: db}, nil
+	return &boltStorage {name: name, db: db}, nil
 }
 
 func FromDB(name string, db *bolt.DB) storage.ManagedStorage {
