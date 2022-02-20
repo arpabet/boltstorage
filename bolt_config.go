@@ -40,6 +40,7 @@ var (
 
 
 type BoltConfig struct {
+	Name        string
 	DataFile    string
 	ReadOnly    bool
 }

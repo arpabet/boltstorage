@@ -20,6 +20,7 @@ package boltstorage
 
 import (
 	"bytes"
+	"errors"
 	"github.com/boltdb/bolt"
 	"go.arpabet.com/storage"
 	"io"
@@ -27,21 +28,30 @@ import (
 )
 
 type boltStorage struct {
+	name   string
 	db     *bolt.DB
 }
 
 func New(conf *BoltConfig) (storage.ManagedStorage, error) {
+
+	if conf.Name == "" {
+		return nil, errors.New("empty storage name")
+	}
 
 	db, err := OpenDatabase(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return &boltStorage {db}, nil
+	return &boltStorage {name: conf.Name, db: db}, nil
 }
 
-func FromDB(db *bolt.DB) storage.ManagedStorage {
-	return &boltStorage {db}
+func FromDB(name string, db *bolt.DB) storage.ManagedStorage {
+	return &boltStorage {name: name, db: db}
+}
+
+func (t* boltStorage) BeanName() string {
+	return t.name
 }
 
 func (t* boltStorage) Destroy() error {
