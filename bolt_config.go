@@ -38,8 +38,8 @@ var (
     InitialMmapSize = 0
 
 	ErrDatabaseReadOnly = errors.New("readonly")
-	ErrInvalidSeek = errors.New("invalid seek")
-
+	ErrInvalidSeek      = errors.New("invalid seek")
+	ErrCanceled         = errors.New("operation was canceled")
 )
 
 

@@ -70,6 +70,10 @@ func (t* boltStorage) Set() *storage.SetOperation {
 	return &storage.SetOperation{Storage: t}
 }
 
+func (t *boltStorage) Increment() *storage.IncrementOperation {
+	return &storage.IncrementOperation{Storage: t, Initial: 0, Delta: 1}
+}
+
 func (t* boltStorage) CompareAndSet() *storage.CompareAndSetOperation {
 	return &storage.CompareAndSetOperation{Storage: t}
 }
@@ -103,6 +107,34 @@ func (t* boltStorage) SetRaw(bucket, key, value []byte, ttlSeconds int) error {
 
 	})
 
+}
+
+func (t *boltStorage) DoInTransaction(bucket, key []byte, cb func(entry *storage.RawEntry) bool) error {
+
+	if t.db.IsReadOnly() {
+		return ErrDatabaseReadOnly
+	}
+
+	return t.db.Update(func(tx *bolt.Tx) error {
+
+		b, err := tx.CreateBucketIfNotExists(bucket)
+		if err != nil {
+			return err
+		}
+
+		re := storage.RawEntry{
+			Key:     key,
+			Value:   b.Get(key),
+			Ttl:     0,
+			Version: 0,
+		}
+
+		if !cb(&re) {
+			return ErrCanceled
+		}
+
+		return b.Put(key, re.Value)
+	})
 }
 
 func (t* boltStorage) CompareAndSetRaw(bucket, key, value []byte, ttlSeconds int, version int64) (bool, error) {
