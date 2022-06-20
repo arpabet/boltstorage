@@ -29,6 +29,9 @@ import (
 )
 
 var (
+
+	BucketSeparator = byte(':')
+
 	ErrDatabaseReadOnly = errors.New("readonly")
 	ErrInvalidSeek      = errors.New("invalid seek")
 	ErrCanceled         = errors.New("operation was canceled")

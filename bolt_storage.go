@@ -96,16 +96,26 @@ func (t* boltStorage) Enumerate() *storage.EnumerateOperation {
 	return &storage.EnumerateOperation{Storage: t}
 }
 
-func (t* boltStorage) GetRaw(bucket, key []byte, ttlPtr *int, versionPtr *int64, required bool) ([]byte, error) {
-	return t.getImpl(bucket, key, required)
+func (t* boltStorage) GetRaw(key []byte, ttlPtr *int, versionPtr *int64, required bool) ([]byte, error) {
+	return t.getImpl(key, required)
 }
 
-func (t* boltStorage) SetRaw(bucket, key, value []byte, ttlSeconds int) error {
+func (t* boltStorage) parseKey(fullKey []byte) ([]byte, []byte) {
+	i := bytes.IndexByte(fullKey, BucketSeparator)
+	if i == -1 {
+		return fullKey, []byte{}
+	} else {
+		return fullKey[:i], fullKey[i+1:]
+	}
+}
+
+func (t* boltStorage) SetRaw(fullKey, value []byte, ttlSeconds int) error {
 
 	if t.db.IsReadOnly() {
 		return ErrDatabaseReadOnly
 	}
 
+	bucket, key := t.parseKey(fullKey)
 	return t.db.Update(func(tx *bolt.Tx) error {
 
 		b, err := tx.CreateBucketIfNotExists(bucket)
@@ -119,12 +129,13 @@ func (t* boltStorage) SetRaw(bucket, key, value []byte, ttlSeconds int) error {
 
 }
 
-func (t *boltStorage) DoInTransaction(bucket, key []byte, cb func(entry *storage.RawEntry) bool) error {
+func (t *boltStorage) DoInTransaction(fullKey []byte, cb func(entry *storage.RawEntry) bool) error {
 
 	if t.db.IsReadOnly() {
 		return ErrDatabaseReadOnly
 	}
 
+	bucket, key := t.parseKey(fullKey)
 	return t.db.Update(func(tx *bolt.Tx) error {
 
 		b, err := tx.CreateBucketIfNotExists(bucket)
@@ -147,16 +158,17 @@ func (t *boltStorage) DoInTransaction(bucket, key []byte, cb func(entry *storage
 	})
 }
 
-func (t* boltStorage) CompareAndSetRaw(bucket, key, value []byte, ttlSeconds int, version int64) (bool, error) {
-	return true, t.SetRaw(bucket, key, value, ttlSeconds)
+func (t* boltStorage) CompareAndSetRaw(key, value []byte, ttlSeconds int, version int64) (bool, error) {
+	return true, t.SetRaw(key, value, ttlSeconds)
 }
 
-func (t* boltStorage) RemoveRaw(bucket, key []byte) error {
+func (t* boltStorage) RemoveRaw(fullKey []byte) error {
 
 	if t.db.IsReadOnly() {
 		return ErrDatabaseReadOnly
 	}
 
+	bucket, key := t.parseKey(fullKey)
 	return t.db.Update(func(tx *bolt.Tx) error {
 
 		b, err := tx.CreateBucketIfNotExists(bucket)
@@ -169,10 +181,11 @@ func (t* boltStorage) RemoveRaw(bucket, key []byte) error {
 
 }
 
-func (t* boltStorage) getImpl(bucket, key []byte, required bool) ([]byte, error) {
+func (t* boltStorage) getImpl(fullKey []byte, required bool) ([]byte, error) {
 
 	var val []byte
 
+	bucket, key := t.parseKey(fullKey)
 	err := t.db.View(func(tx *bolt.Tx) error {
 
 		b := tx.Bucket(bucket)
