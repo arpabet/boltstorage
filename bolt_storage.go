@@ -24,7 +24,7 @@ package boltstorage
 
 import (
 	"bytes"
-	"errors"
+	"github.com/pkg/errors"
 	"github.com/boltdb/bolt"
 	"go.arpabet.com/storage"
 	"io"
@@ -208,14 +208,19 @@ func (t* boltStorage) getImpl(fullKey []byte, required bool) ([]byte, error) {
 	return val, nil
 }
 
-func (t* boltStorage) EnumerateRaw(bucket, seek []byte, batchSize int, onlyKeys bool, cb func(entry *storage.RawEntry) bool) error {
+func (t* boltStorage) EnumerateRaw(fullPrefix, fullSeek []byte, batchSize int, onlyKeys bool, cb func(entry *storage.RawEntry) bool) error {
 
 	// for API compatibility with other storage impls (PnP)
-	if !bytes.HasPrefix(seek, bucket) {
+	if !bytes.HasPrefix(fullSeek, fullPrefix) {
 		return ErrInvalidSeek
 	}
 
-	seek = seek[len(bucket):]
+	bucket, prefix := t.parseKey(fullPrefix)
+	bucketSeek, seek := t.parseKey(fullSeek)
+
+	if !bytes.Equal(bucket, bucketSeek) {
+		return errors.Errorf("seek has bucket '%s' whereas a prefix has bucket '%s'", string(bucketSeek), string(bucket))
+	}
 
 	return t.db.View(func(tx *bolt.Tx) error {
 
@@ -225,20 +230,12 @@ func (t* boltStorage) EnumerateRaw(bucket, seek []byte, batchSize int, onlyKeys 
 		}
 
 		cur := b.Cursor()
-		k, v := cur.Seek(seek)  // within bucket
-		if k != nil {
-			re := storage.RawEntry{
-				Key:     k,
-				Value:   v,
-				Ttl:     0,
-				Version: 0,
-			}
-			if !cb(&re) {
-				return nil
-			}
-		}
-
 		for k, v := cur.Seek(seek); k != nil; k, v = cur.Next() {
+
+			if !bytes.HasPrefix(k, prefix) {
+				break
+			}
+
 			re := storage.RawEntry{
 				Key:     k,
 				Value:   v,
@@ -256,10 +253,11 @@ func (t* boltStorage) EnumerateRaw(bucket, seek []byte, batchSize int, onlyKeys 
 
 }
 
-func (t* boltStorage) FetchKeysRaw(bucket []byte, batchSize int) ([][]byte, error) {
+func (t* boltStorage) FetchKeysRaw(prefix []byte, batchSize int) ([][]byte, error) {
 
 	var keys [][]byte
 
+	bucket, _ := t.parseKey(prefix)
 	t.db.View(func(tx *bolt.Tx) error {
 
 		b := tx.Bucket(bucket)
@@ -354,8 +352,9 @@ func (t* boltStorage) DropAll() error {
 	return err
 }
 
-func (t* boltStorage) DropWithPrefix(bucket []byte) error {
+func (t* boltStorage) DropWithPrefix(prefix []byte) error {
 
+	bucket, _ := t.parseKey(prefix)
 	return t.db.Update(func(tx *bolt.Tx) error {
 
 		b := tx.Bucket(bucket)
