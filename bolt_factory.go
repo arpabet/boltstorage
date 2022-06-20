@@ -27,13 +27,13 @@ import (
 	"os"
 )
 
-func OpenDatabase(dataDir string, dataFilePerm os.FileMode, options ...Option) (*bolt.DB, error) {
+func OpenDatabase(dataFile string, dataFilePerm os.FileMode, options ...Option) (*bolt.DB, error) {
 
 	opts := &bolt.Options{}
 	for _, opt := range options {
 		opt.apply(opts)
 	}
 
-	return bolt.Open(dataDir, dataFilePerm, opts)
+	return bolt.Open(dataFile, dataFilePerm, opts)
 }
 
