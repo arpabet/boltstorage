@@ -34,20 +34,30 @@ import (
 type boltStorage struct {
 	name   string
 	db     *bolt.DB
+
+	dataDir string
+	dataFilePerm os.FileMode
+	options []Option
 }
 
-func New(name string, conf *BoltConfig) (storage.ManagedStorage, error) {
+func New(name string, dataDir string, dataFilePerm os.FileMode, options... Option) (storage.ManagedStorage, error) {
 
 	if name == "" {
 		return nil, errors.New("empty bean name")
 	}
 
-	db, err := OpenDatabase(conf)
+	db, err := OpenDatabase(dataDir, dataFilePerm, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &boltStorage {name: name, db: db}, nil
+	return &boltStorage {
+		name: name,
+		db: db,
+		dataDir: dataDir,
+		dataFilePerm: dataFilePerm,
+		options: options,
+	}, nil
 }
 
 func FromDB(name string, db *bolt.DB) storage.ManagedStorage {
@@ -285,7 +295,7 @@ func (t* boltStorage) Restore(src io.Reader) error {
 		return err
 	}
 
-	dst, err := os.OpenFile(dbPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, DataFilePerm)
+	dst, err := os.OpenFile(dbPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, t.dataFilePerm)
 	if err != nil {
 		return err
 	}
@@ -294,15 +304,14 @@ func (t* boltStorage) Restore(src io.Reader) error {
 	if err != nil {
 		return err
 	}
-	
-	t.db, err = bolt.Open(dbPath, DataFilePerm, &bolt.Options{
-		Timeout:         OpenTimeout,
-		NoGrowSync:      NoGrowSync,
-		ReadOnly:        false,
-		MmapFlags:       MmapFlags,
-		InitialMmapSize: InitialMmapSize,
-	})
 
+	opts := &bolt.Options{}
+	for _, opt := range t.options {
+		opt.apply(opts)
+	}
+	opts.ReadOnly = false
+
+	t.db, err = bolt.Open(dbPath, t.dataFilePerm, opts)
 	return err
 }
 
@@ -323,10 +332,12 @@ func (t* boltStorage) DropAll() error {
 		return err
 	}
 
-	t.db, err = bolt.Open(dbPath, DataFilePerm, &bolt.Options{
-		Timeout: OpenTimeout,
-	})
+	opts := &bolt.Options{}
+	for _, opt := range t.options {
+		opt.apply(opts)
+	}
 
+	t.db, err = bolt.Open(dbPath, t.dataFilePerm, opts)
 	return err
 }
 

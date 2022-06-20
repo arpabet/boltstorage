@@ -24,17 +24,16 @@ package boltstorage
 
 import (
 	"github.com/boltdb/bolt"
+	"os"
 )
 
-func OpenDatabase(conf *BoltConfig) (*bolt.DB, error) {
+func OpenDatabase(dataDir string, dataFilePerm os.FileMode, options ...Option) (*bolt.DB, error) {
 
-	return bolt.Open(conf.DataFile, DataFilePerm, &bolt.Options{
-		Timeout:         OpenTimeout,
-		NoGrowSync:      NoGrowSync,
-		ReadOnly:        conf.ReadOnly,
-		MmapFlags:       MmapFlags,
-		InitialMmapSize: InitialMmapSize,
-	})
-	
+	opts := &bolt.Options{}
+	for _, opt := range options {
+		opt.apply(opts)
+	}
+
+	return bolt.Open(dataDir, dataFilePerm, opts)
 }
 
