@@ -24,8 +24,8 @@ package boltstorage
 
 import (
 	"bytes"
-	"github.com/pkg/errors"
 	"github.com/boltdb/bolt"
+	"github.com/pkg/errors"
 	"go.arpabet.com/storage"
 	"io"
 	"os"
@@ -222,6 +222,8 @@ func (t* boltStorage) EnumerateRaw(fullPrefix, fullSeek []byte, batchSize int, o
 		return errors.Errorf("seek has bucket '%s' whereas a prefix has bucket '%s'", string(bucketSeek), string(bucket))
 	}
 
+	bucketWithSeparator := append(bucket, BucketSeparator)
+
 	return t.db.View(func(tx *bolt.Tx) error {
 
 		b := tx.Bucket(bucket)
@@ -230,14 +232,21 @@ func (t* boltStorage) EnumerateRaw(fullPrefix, fullSeek []byte, batchSize int, o
 		}
 
 		cur := b.Cursor()
-		for k, v := cur.Seek(seek); k != nil; k, v = cur.Next() {
+
+		var k, v []byte
+		if len(seek) > 0 {
+			k, v = cur.Seek(seek)
+		} else {
+			k, v = cur.First()
+		}
+		for ; k != nil; k, v = cur.Next() {
 
 			if !bytes.HasPrefix(k, prefix) {
 				break
 			}
 
 			re := storage.RawEntry{
-				Key:     k,
+				Key:     append(bucketWithSeparator, k...),
 				Value:   v,
 				Ttl:     0,
 				Version: 0,

@@ -16,8 +16,8 @@ github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 go.arpabet.com/beans v1.0.0 h1:5ZjkNAebWT9F+k9bmcBcmpDZ0hhW4zP2j0TYebXz6/w=
 go.arpabet.com/beans v1.0.0/go.mod h1:pHDKR8M53vxeqUOOCCy+hE0BS2jZhbTL9Iq9fA6JLM0=
-go.arpabet.com/storage v1.5.0 h1:eSDVcv2Ycm4KG3pwJxKs1BzXbDxXw6D6qU9iXbQdfIo=
-go.arpabet.com/storage v1.5.0/go.mod h1:HrC5vpN2mPbpTpTUGauL9Uv8e+atgVwOFHPzrfXAygQ=
+go.arpabet.com/storage v1.5.1 h1:bZHby/8XSYqFv+JY1x+SlcFGmembYXqMBTAk7InmJZw=
+go.arpabet.com/storage v1.5.1/go.mod h1:HrC5vpN2mPbpTpTUGauL9Uv8e+atgVwOFHPzrfXAygQ=
 golang.org/x/sys v0.0.0-20220204135822-1c1b9b1eba6a h1:ppl5mZgokTT8uPkmYOyEUmPTr3ypaKkg5eFOGrAmxxE=
 golang.org/x/sys v0.0.0-20220204135822-1c1b9b1eba6a/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 h1:E7g+9GITq07hpfrRu66IVDexMakfv52eLZ2CXBWiKr4=
