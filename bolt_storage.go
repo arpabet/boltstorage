@@ -208,80 +208,100 @@ func (t* boltStorage) getImpl(fullKey []byte, required bool) ([]byte, error) {
 	return val, nil
 }
 
-func (t* boltStorage) EnumerateRaw(fullPrefix, fullSeek []byte, batchSize int, onlyKeys bool, cb func(entry *storage.RawEntry) bool) error {
+func (t* boltStorage) EnumerateRaw(prefix, seek []byte, batchSize int, onlyKeys bool, cb func(entry *storage.RawEntry) bool) error {
 
 	// for API compatibility with other storage impls (PnP)
-	if !bytes.HasPrefix(fullSeek, fullPrefix) {
+	if !bytes.HasPrefix(seek, prefix) {
 		return ErrInvalidSeek
 	}
 
-	bucket, prefix := t.parseKey(fullPrefix)
-	bucketSeek, seek := t.parseKey(fullSeek)
-
-	if !bytes.Equal(bucket, bucketSeek) {
-		return errors.Errorf("seek has bucket '%s' whereas a prefix has bucket '%s'", string(bucketSeek), string(bucket))
+	if len(prefix) == 0 {
+		return t.enumerateAll(prefix, seek, onlyKeys, cb)
 	}
 
-	bucketWithSeparator := append(bucket, BucketSeparator)
+	bucketPrefix, _ := t.parseKey(prefix)
+	bucketSeek, _ := t.parseKey(seek)
+
+	if !bytes.Equal(bucketPrefix, bucketSeek) {
+		return errors.Errorf("seek has bucket '%s' whereas prefix has bucket '%s'", string(bucketSeek), string(bucketPrefix))
+	}
 
 	return t.db.View(func(tx *bolt.Tx) error {
 
-		b := tx.Bucket(bucket)
+		b := tx.Bucket(bucketPrefix)
 		if b == nil {
-			return nil
+			return t.enumerateAllInTx(tx, prefix, seek, onlyKeys, cb)
 		}
 
-		cur := b.Cursor()
-
-		var k, v []byte
-		if len(seek) > 0 {
-			k, v = cur.Seek(seek)
-		} else {
-			k, v = cur.First()
-		}
-		for ; k != nil; k, v = cur.Next() {
-
-			if !bytes.HasPrefix(k, prefix) {
-				break
-			}
-
-			re := storage.RawEntry{
-				Key:     append(bucketWithSeparator, k...),
-				Value:   v,
-				Ttl:     0,
-				Version: 0,
-			}
-			if !cb(&re) {
-				return nil
-			}
-		}
-
-		return nil
+		return t.enumerateInBucket(newAppend(bucketPrefix, BucketSeparator), b, prefix, seek, onlyKeys, cb)
 
 	})
 
 }
 
-func (t* boltStorage) FetchKeysRaw(prefix []byte, batchSize int) ([][]byte, error) {
+func (t *boltStorage) enumerateInBucket(bucketWithSeparator []byte, b *bolt.Bucket, prefix, seek []byte, onlyKeys bool, cb func(entry *storage.RawEntry) bool) error {
 
-	var keys [][]byte
+	cur := b.Cursor()
 
-	bucket, _ := t.parseKey(prefix)
-	t.db.View(func(tx *bolt.Tx) error {
+	var k, v []byte
+	if len(seek) > 0 {
+		k, v = cur.Seek(seek)
+	} else {
+		k, v = cur.First()
+	}
+	for ; k != nil; k, v = cur.Next() {
 
-		b := tx.Bucket(bucket)
-		if b == nil {
+		key := append(bucketWithSeparator, k...)
+
+		if !bytes.HasPrefix(key, prefix) {
+			break
+		}
+
+		re := storage.RawEntry{
+			Key:     key,
+			Ttl:     0,
+			Version: 0,
+		}
+
+		if !onlyKeys {
+			re.Value = v
+		}
+
+		if !cb(&re) {
 			return nil
 		}
-		
-		return b.ForEach(func(k, v []byte) error {
-			keys = append(keys, k)
-			return nil
-		})
+	}
+
+	return nil
+}
+
+func (t* boltStorage) enumerateAll(prefix, seek []byte, onlyKeys bool, cb func(entry *storage.RawEntry) bool) error {
+
+	return t.db.View(func(tx *bolt.Tx) error {
+
+		return t.enumerateAllInTx(tx, prefix, seek, onlyKeys, cb)
 
 	})
 
-	return keys, nil
+}
+
+func (t *boltStorage) enumerateAllInTx(tx *bolt.Tx, prefix []byte, seek []byte, onlyKeys bool, cb func(entry *storage.RawEntry) bool) error {
+	return tx.ForEach(func(bucket []byte, b *bolt.Bucket) error {
+
+		bucketWithSeparator := newAppend(bucket, BucketSeparator)
+		n := len(bucketWithSeparator)
+		p := prefix
+		if len(p) > n {
+			p = prefix[:n]
+		}
+
+		if !bytes.HasPrefix(bucketWithSeparator, p) {
+			return nil
+		}
+
+		return t.enumerateInBucket(bucketWithSeparator, b, prefix, seek, onlyKeys, cb)
+
+	})
 }
 
 func (t* boltStorage) Compact(discardRatio float64) error {
@@ -381,4 +401,13 @@ func (t* boltStorage) DropWithPrefix(prefix []byte) error {
 
 func (t* boltStorage) Instance() interface{} {
 	return t.db
+}
+
+func newAppend(arr []byte, other... byte) []byte {
+	n := len(arr)
+	m := len(other)
+	result := make([]byte, n+m)
+	copy(result, arr)
+	copy(result[n:], other)
+	return result
 }

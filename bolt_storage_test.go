@@ -55,6 +55,16 @@ func TestPrimitives(t *testing.T) {
 	require.Equal(t,"value", value)
 
 	cnt := 0
+	err = s.Enumerate().Do(func(entry *storage.RawEntry) bool {
+		require.Equal(t, "first:name", string(entry.Key))
+		require.Equal(t, "value", string(entry.Value))
+		cnt++
+		return true
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, cnt)
+
+	cnt = 0
 	err = s.Enumerate().ByPrefix("%s:", bucket).Do(func(entry *storage.RawEntry) bool {
 		require.Equal(t, "first:name", string(entry.Key))
 		require.Equal(t, "value", string(entry.Value))
