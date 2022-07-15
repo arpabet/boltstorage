@@ -226,8 +226,8 @@ func (t *boltStorage) enumerateInBucket(bucketWithSeparator []byte, b *bolt.Buck
 	cur := b.Cursor()
 
 	var k, v []byte
-	if len(seek) > 0 {
-		k, v = cur.Seek(seek)
+	if len(seek) > len(bucketWithSeparator) {
+		k, v = cur.Seek(seek[len(bucketWithSeparator):])
 	} else {
 		k, v = cur.First()
 	}
